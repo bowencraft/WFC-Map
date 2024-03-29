@@ -20,7 +20,7 @@ public class Task2Generator : MonoBehaviour
     
     const int GRID_WIDTH = 17;
     const int GRID_HEIGHT = 9;
-    const int MAX_TRIES = 10;
+    const int MAX_TRIES = 1;
     [SerializeField] List<MultipleTile> _tileset;
     SuperPosition[,] _grid;
 
@@ -83,19 +83,22 @@ public class Task2Generator : MonoBehaviour
                     _grid[lastStep.Key.x, lastStep.Key.y].RemovePossibleValue(lastStep.Value); // 移除失败的瓦片选择
                     continue; // 从上一个状态尝试
                 }
+                else
+                {
+                    return false; // 如果没有更多的回溯步骤，算法失败
+                }
                 
-                return false; // 如果没有更多的回溯步骤，算法失败
             }
 
             int observedValue = Observe(node);
-            Debug.Log("Observed value: " + node + ", " + observedValue);
-            if (observedValue == -1)
-            {
-                // 如果观测失败，记录当前节点和失败的值，然后尝试回溯
-                Debug.LogWarning("Observed failure: " + node);
-                backtrackSteps.Push(new KeyValuePair<Vector2Int, int>(node, observedValue));
-                continue;
-            }
+            // if (observedValue == -1)
+            // {
+            //     // 如果观测失败，记录当前节点和失败的值，然后尝试回溯
+            //     Debug.LogWarning("Observed failure: " + node);
+            //     backtrackSteps.Push(new KeyValuePair<Vector2Int, int>(node, observedValue));
+            //     continue;
+            // }
+            backtrackSteps.Push(new KeyValuePair<Vector2Int, int>(node, observedValue));
             PropogateNeighbors(node, observedValue);
             // 如果没有观测失败，可以选择记录当前成功的步骤，但在这个简化的例子中不是必需的
         }
@@ -133,8 +136,17 @@ public class Task2Generator : MonoBehaviour
 
     int Observe(Vector2Int node)
     {
+        // Debug.LogWarning(node.x + "," + node.y);
+        if (_grid[node.x, node.y].PossibleValues.Count == 0)
+        {
+            Debug.LogWarning("No possible values for observation at node " + node);
+            return -1; // 表示观测失败
+        }
+        
+        Debug.Log("Observing cell: " + node.x + ", " +  node.y + ", Possible Values: " + _grid[node.x, node.y].PossibleValues.Count);
         return _grid[node.x, node.y].Observe();
     }
+
 
 
     private void InitGrid()
@@ -188,6 +200,11 @@ public class Task2Generator : MonoBehaviour
             {
                 neighborSuperPosition.RemovePossibleValue(value);
             }
+            //
+            // if (neighborSuperPosition.NumOptions == 0)
+            // {
+            //     Debug.LogWarning("No possible values for neighbor " + neighborNode);
+            // }
 
         }
     }
