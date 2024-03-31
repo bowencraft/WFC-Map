@@ -50,10 +50,10 @@ MonoBehaviour:
     OwnType: 32
     DesiredType: 16
   RightEdge:
-    OwnType: 1
+    OwnType: 64
     DesiredType: 1
   UpEdge:
-    OwnType: 1
+    OwnType: 64
     DesiredType: 1
   DownEdge:
     OwnType: 32

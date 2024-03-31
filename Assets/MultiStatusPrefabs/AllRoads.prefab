@@ -48,16 +48,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   LeftEdge:
     OwnType: 1
-    DesiredType: 1
+    DesiredType: 513
   RightEdge:
     OwnType: 1
-    DesiredType: 1
+    DesiredType: 513
   UpEdge:
     OwnType: 1
-    DesiredType: 1
+    DesiredType: 513
   DownEdge:
     OwnType: 1
-    DesiredType: 1
+    DesiredType: 513
   RotationVariant: 0
 --- !u!1001 &747777888953174382
 PrefabInstance:
