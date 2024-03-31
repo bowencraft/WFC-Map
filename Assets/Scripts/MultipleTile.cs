@@ -13,7 +13,11 @@ public class MultipleTile : MonoBehaviour
         Building = 1 << 2,
         Condo = 1 << 3,
         Grass = 1 << 4,
-        RoadBarrier = 1 << 5
+        RoadBarrier = 1 << 5,
+        RoadTurn = 1 << 6,
+        HighRoadTurn = 1 << 7,
+        HighRoadStart = 1 << 8,
+        HighRoadEnd = 1 << 9
     }
 
     // 定义 Edge 作为存储边缘类型和期望类型的结构

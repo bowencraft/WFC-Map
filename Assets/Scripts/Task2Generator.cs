@@ -8,19 +8,30 @@ public class Task2Generator : MonoBehaviour
     class GridState
     {
         public SuperPosition[,] Grid;
-    
+
         public GridState(SuperPosition[,] grid)
         {
-            Grid = grid.Clone() as SuperPosition[,]; // 深复制网格状态
+            int width = grid.GetLength(0);
+            int height = grid.GetLength(1);
+            Grid = new SuperPosition[width, height];
+
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    // 使用SuperPosition的深拷贝构造函数
+                    Grid[x, y] = new SuperPosition(grid[x, y]);
+                }
+            }
         }
     }
 
     Stack<GridState> states = new Stack<GridState>();
 
     
-    const int GRID_WIDTH = 17;
-    const int GRID_HEIGHT = 9;
-    const int MAX_TRIES = 1;
+    public int GRID_WIDTH = 8;
+    public int GRID_HEIGHT = 8;
+    public int MAX_TRIES = 16;
     [SerializeField] List<MultipleTile> _tileset;
     SuperPosition[,] _grid;
 
@@ -69,42 +80,45 @@ public class Task2Generator : MonoBehaviour
     bool RunWFC()
     {
         InitGrid();
-        // 存储节点和尝试失败的瓦片索引
-        Stack<KeyValuePair<Vector2Int, int>> backtrackSteps = new Stack<KeyValuePair<Vector2Int, int>>();
-
+    
         while (DoUnobservedNodesExist())
         {
             Vector2Int node = GetNextUnobservedNode();
             if (node.x == -1)
             {
-                if (backtrackSteps.Count > 0)
+                // 如果没有更多节点可以观察，算法失败
+                return false;
+            }
+
+            // 在观察之前记录当前状态
+            states.Push(new GridState((SuperPosition[,])_grid.Clone()));
+
+            int observedValue = Observe(node);
+            if (observedValue == -1)
+            {
+                // 观察失败，回溯到上一个状态
+                if (states.Count > 0)
                 {
-                    var lastStep = backtrackSteps.Pop();
-                    _grid[lastStep.Key.x, lastStep.Key.y].RemovePossibleValue(lastStep.Value); // 移除失败的瓦片选择
-                    continue; // 从上一个状态尝试
+                    _grid = states.Pop().Grid; // 恢复上一个状态
+                    // 从导致失败的节点中移除观察到的值（如果适用）
+                    _grid[node.x, node.y].RemovePossibleValue(observedValue);
                 }
                 else
                 {
-                    return false; // 如果没有更多的回溯步骤，算法失败
+                    Debug.LogWarning("Count error for observation at node " + node);
+                    return false;
                 }
-                
+            }
+            else
+            {
+                PropogateNeighbors(node, observedValue);
             }
 
-            int observedValue = Observe(node);
-            // if (observedValue == -1)
-            // {
-            //     // 如果观测失败，记录当前节点和失败的值，然后尝试回溯
-            //     Debug.LogWarning("Observed failure: " + node);
-            //     backtrackSteps.Push(new KeyValuePair<Vector2Int, int>(node, observedValue));
-            //     continue;
-            // }
-            backtrackSteps.Push(new KeyValuePair<Vector2Int, int>(node, observedValue));
-            PropogateNeighbors(node, observedValue);
-            // 如果没有观测失败，可以选择记录当前成功的步骤，但在这个简化的例子中不是必需的
         }
 
         return true; // 成功
     }
+
 
 
 
@@ -142,12 +156,10 @@ public class Task2Generator : MonoBehaviour
             Debug.LogWarning("No possible values for observation at node " + node);
             return -1; // 表示观测失败
         }
-        
-        Debug.Log("Observing cell: " + node.x + ", " +  node.y + ", Possible Values: " + _grid[node.x, node.y].PossibleValues.Count);
         return _grid[node.x, node.y].Observe();
     }
 
-
+    public GameObject prefabObject;
 
     private void InitGrid()
     {
@@ -158,6 +170,13 @@ public class Task2Generator : MonoBehaviour
             for (int y = 0; y < GRID_HEIGHT; y++)
             {
                 _grid[x, y] = new SuperPosition(_tileset.Count);
+
+                if (prefabObject != null)
+                {
+                    _grid[x, y].gridObject = Instantiate(prefabObject);
+                    _grid[x, y].gridObject.transform.position = _grid[x, y].gridObject.transform.position + new Vector3(x,0f, y) - new Vector3((GRID_WIDTH-1)/2f, 0f, (GRID_HEIGHT-1)/2f);
+
+                }
             }
         }
     }
@@ -170,6 +189,13 @@ public class Task2Generator : MonoBehaviour
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
     }
+
+    public void RestartScene()
+    {
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        
+    }
+    
     void PropogateNeighbors(Vector2Int node, int observedValue)
     {
         PropogateTo(node, new Vector2Int(-1, 0), _tileset[observedValue]);

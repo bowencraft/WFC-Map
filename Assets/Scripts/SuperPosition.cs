@@ -8,6 +8,8 @@ public class SuperPosition
 
     public List<int> PossibleValues => _possibleValues;
 
+    public GameObject gridObject;
+
     bool _observed = false;
 
     public SuperPosition(int maxValue)
@@ -16,6 +18,12 @@ public class SuperPosition
         {
             _possibleValues.Add(i);
         }
+    }
+    
+    public SuperPosition(SuperPosition other)
+    {
+        _possibleValues = new List<int>(other._possibleValues);
+        _observed = other._observed;
     }
 
     public int GetObservedValue()
