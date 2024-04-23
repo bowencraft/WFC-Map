@@ -81,7 +81,7 @@ public class Task1Generator : MonoBehaviour
 
     int Observe(Vector2Int node)
     {
-        return _grid[node.x, node.y].Observe();
+        return _grid[node.x, node.y].SelectOption();
     }
 
 

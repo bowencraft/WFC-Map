@@ -57,62 +57,62 @@ public class Task2Generator : MonoBehaviour
             DrawTiles();
         }
     }
-
-    // bool RunWFC()
-    // {
-    //     InitGrid();
-    //
-    //     while (DoUnobservedNodesExist())
-    //     {
-    //         Vector2Int node = GetNextUnobservedNode();
-    //         if (node.x == -1)
-    //         {
-    //             return false; //failure
-    //         }
-    //
-    //         int observedValue = Observe(node);
-    //         PropogateNeighbors(node, observedValue);
-    //     }
-    //
-    //     return true; //success
-    // }
     
     bool RunWFC()
     {
-        InitGrid();
+        InitGrid(); // initial grid and create object prefab
     
-        while (DoUnobservedNodesExist())
+        while (DoUnobservedNodesExist()) // when there are any tiles IsObserved() == false
         {
-            Vector2Int node = GetNextUnobservedNode();
+            Vector2Int node = GetNextUnobservedNode(); // get tile with lowest options
             if (node.x == -1)
             {
-                // 如果没有更多节点可以观察，算法失败
                 return false;
             }
 
-            // 在观察之前记录当前状态
-            states.Push(new GridState((SuperPosition[,])_grid.Clone()));
+            // states.Push(new GridState((SuperPosition[,])_grid.Clone())); // push current state to stack
 
-            int observedValue = Observe(node);
-            if (observedValue == -1)
+            int observedValue = SelectOption(node); // observe the super position
+            //
+            // if (observedValue == -1) // if node is _observed || _possibleValues.Count == 0
+            // {
+            //     if (states.Count > 0)
+            //     {
+            //         _grid = states.Pop().Grid; // 恢复上一个状态
+            //     }
+            //     else
+            //     {
+            //         Debug.LogWarning("Count error for observation at node " + node);
+            //         return false;
+            //     }
+            // }
+            // else
+            // {
+            states.Push(new GridState((SuperPosition[,])_grid.Clone()));
+            if (PropogateNeighbors(node, observedValue))
             {
-                // 观察失败，回溯到上一个状态
-                if (states.Count > 0)
-                {
-                    _grid = states.Pop().Grid; // 恢复上一个状态
-                    // 从导致失败的节点中移除观察到的值（如果适用）
-                    _grid[node.x, node.y].RemovePossibleValue(observedValue);
-                }
-                else
-                {
-                    Debug.LogWarning("Count error for observation at node " + node);
-                    return false;
-                }
+                _grid[node.x, node.y].SetCurrentValue(observedValue);
+                _grid[node.x, node.y].SetObserved(true);
             }
             else
             {
-                PropogateNeighbors(node, observedValue);
+                _grid = states.Pop().Grid; // 恢复上一个状态
+                _grid[node.x, node.y].RemovePossibleValue(observedValue);
+                if (_grid[node.x, node.y].NumOptions == 0)
+                {
+                    // if (states.Count > 0)
+                    // {
+                    //     _grid = states.Pop().Grid; // 恢复上一个状态
+                    // }
+                    // else
+                    // {
+                    print("all options for this node is not available");
+                        return false;
+                    // }
+                }
             }
+                
+            // }
 
         }
 
@@ -122,15 +122,30 @@ public class Task2Generator : MonoBehaviour
 
 
 
-    void DrawTiles() {
+    void DrawTiles()
+    {
+        GameObject tilesParent = GameObject.Find("Tiles");
+        while (tilesParent.transform.childCount > 0)
+        {
+            DestroyImmediate(tilesParent.transform.GetChild(0).gameObject);
+        }
+        
         for (int x = 0; x < GRID_WIDTH; x++)
         {
             for (int y = 0; y < GRID_HEIGHT; y++)
             {
-                GameObject tile = GameObject.Instantiate(_tileset[_grid[x, y].GetObservedValue()].gameObject);
+                GameObject tile = GameObject.Instantiate(_tileset[_grid[x, y].GetCurrentValue()].gameObject);
                 tile.transform.position = tile.transform.position + new Vector3(x,0f, y) - new Vector3((GRID_WIDTH-1)/2f, 0f, (GRID_HEIGHT-1)/2f);
+                tile.transform.parent = tilesParent.transform;
             }
         }
+    }
+
+    void DrawTile(int x, int y)
+    {
+        GameObject tile = GameObject.Instantiate(_tileset[_grid[x, y].GetCurrentValue()].gameObject);
+        tile.transform.position = tile.transform.position + new Vector3(x,0f, y) - new Vector3((GRID_WIDTH-1)/2f, 0f, (GRID_HEIGHT-1)/2f);
+        tile.transform.parent = GameObject.Find("Tiles").transform;
     }
 
     bool DoUnobservedNodesExist()
@@ -148,15 +163,15 @@ public class Task2Generator : MonoBehaviour
         return false;
     }
 
-    int Observe(Vector2Int node)
+    int SelectOption(Vector2Int node)
     {
         // Debug.LogWarning(node.x + "," + node.y);
-        if (_grid[node.x, node.y].PossibleValues.Count == 0)
-        {
-            Debug.LogWarning("No possible values for observation at node " + node);
-            return -1; // 表示观测失败
-        }
-        return _grid[node.x, node.y].Observe();
+        // if (_grid[node.x, node.y].PossibleValues.Count == 0)
+        // {
+        //     Debug.LogWarning("No possible values for observation at node " + node);
+        //     return -1; // 表示观测失败
+        // }
+        return _grid[node.x, node.y].SelectOption();
     }
 
     public GameObject prefabObject;
@@ -196,15 +211,21 @@ public class Task2Generator : MonoBehaviour
         
     }
     
-    void PropogateNeighbors(Vector2Int node, int observedValue)
+    bool PropogateNeighbors(Vector2Int node, int observedValue)
     {
-        PropogateTo(node, new Vector2Int(-1, 0), _tileset[observedValue]);
-        PropogateTo(node, new Vector2Int(1, 0), _tileset[observedValue]);
-        PropogateTo(node, new Vector2Int(0, -1), _tileset[observedValue]);
-        PropogateTo(node, new Vector2Int(0, 1), _tileset[observedValue]);
+        if (
+        (PropogateTo(node, new Vector2Int(-1, 0), _tileset[observedValue]) ||
+        PropogateTo(node, new Vector2Int(1, 0), _tileset[observedValue])||
+        PropogateTo(node, new Vector2Int(0, -1), _tileset[observedValue]) ||
+        PropogateTo(node, new Vector2Int(0, 1), _tileset[observedValue]) ) == false)
+        {
+            return false;
+        }
+
+        return true;
     }
 
-    void PropogateTo(Vector2Int node, Vector2Int direction, MultipleTile mustWorkAdjacentTo)
+    bool PropogateTo(Vector2Int node, Vector2Int direction, MultipleTile mustWorkAdjacentTo)
     {
         Vector2Int neighborNode = node + direction;
         
@@ -227,12 +248,11 @@ public class Task2Generator : MonoBehaviour
                 neighborSuperPosition.RemovePossibleValue(value);
             }
             //
-            // if (neighborSuperPosition.NumOptions == 0)
-            // {
-            //     Debug.LogWarning("No possible values for neighbor " + neighborNode);
-            // }
+            return (neighborSuperPosition.NumOptions != 0);
 
         }
+
+        return true; // not dealing with edge cases
     }
 
 

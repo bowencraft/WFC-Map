@@ -11,6 +11,8 @@ public class SuperPosition
     public GameObject gridObject;
 
     bool _observed = false;
+    
+    int currentCount = 0;
 
     public SuperPosition(int maxValue)
     {
@@ -31,7 +33,17 @@ public class SuperPosition
         return _possibleValues[0];
     }
     
-    public int Observe()
+    public int GetCurrentValue()
+    {
+        return currentCount;
+    }
+
+    public void SetCurrentValue(int value)
+    {
+        currentCount = value;
+    }
+    
+    public int SelectOption()
     {
         if (_observed || _possibleValues.Count == 0)
         {
@@ -44,13 +56,18 @@ public class SuperPosition
         int observedValue = _possibleValues[randomIndex];
 
         // Clear the list and add back only the observed value
-        _possibleValues.Clear();
-        _possibleValues.Add(observedValue);
+        // _possibleValues.Clear();
+        // _possibleValues.Add(observedValue);
 
-        // Mark as observed
-        _observed = true;
+        // // Mark as observed
+        // _observed = true;
 
         return observedValue;
+    }
+    
+    public void SetObserved(bool observed)
+    {
+        _observed = observed;
     }
 
 
