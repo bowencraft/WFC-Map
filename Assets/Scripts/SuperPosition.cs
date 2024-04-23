@@ -12,7 +12,7 @@ public class SuperPosition
 
     bool _observed = false;
     
-    int currentCount = 0;
+    int currentCount = -1;
 
     public SuperPosition(int maxValue)
     {
@@ -26,6 +26,7 @@ public class SuperPosition
     {
         _possibleValues = new List<int>(other._possibleValues);
         _observed = other._observed;
+        currentCount = other.currentCount;
     }
 
     public int GetObservedValue()

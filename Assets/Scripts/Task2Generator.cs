@@ -1,7 +1,11 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using TMPro;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class Task2Generator : MonoBehaviour
 {
@@ -27,47 +31,62 @@ public class Task2Generator : MonoBehaviour
     }
 
     Stack<GridState> states = new Stack<GridState>();
-
+    Stack<Vector3Int> nodesValues = new Stack<Vector3Int>();
     
+
+    [Header("Grid Settings")]
     public int GRID_WIDTH = 8;
     public int GRID_HEIGHT = 8;
-    public int MAX_TRIES = 16;
+
+    public Vector2Int initialObservePoint;
+    // public int MAX_TRIES = 16;
+    [Header("Tiles")]
     [SerializeField] List<MultipleTile> _tileset;
+    
+    [Header("Test")]
+    [SerializeField] GameObject _titlePrefab;
+
+    [SerializeField] private TextMeshProUGUI _stackText;
+    public float _timeBetweenSteps = 0.2f;
+    public bool runtimeDrawing = true;
     SuperPosition[,] _grid;
 
     // Start is called before the first frame update
     void Start()
     {
-        int tries = 0;
-        bool result;
-
-        do
-        {
-            tries++;
-            result = RunWFC();
-        }
-        while (result == false && tries < MAX_TRIES);
-
-        if (result == false)
-        {
-            print("Unable to solve wave function collapse after " + tries + " tries.");
-        }
-        else
-        {
-            DrawTiles();
-        }
+        StartCoroutine(RunWFC());
+        // int tries = 0;
+        // bool result;
+        //
+        // do
+        // {
+        //     tries++;
+        //     result = RunWFC();
+        // }
+        // while (result == false && tries < MAX_TRIES);
+        //
+        // if (result == false)
+        // {
+        //     print("Unable to solve wave function collapse after " + tries + " tries.");
+        // }
+        // else
+        // {
+        //     DrawTiles();
+        // }
     }
     
-    bool RunWFC()
+    IEnumerator RunWFC()
     {
         InitGrid(); // initial grid and create object prefab
     
         while (DoUnobservedNodesExist()) // when there are any tiles IsObserved() == false
         {
-            Vector2Int node = GetNextUnobservedNode(); // get tile with lowest options
+            Vector2Int node = initialObservePoint != new Vector2Int(-1,-1) ?initialObservePoint :GetNextUnobservedNode(); // get tile with lowest options
+            initialObservePoint = new Vector2Int(-1, -1);
             if (node.x == -1)
             {
-                return false;
+                // return false;
+                print("Unable to solve wave function collapse");
             }
 
             // states.Push(new GridState((SuperPosition[,])_grid.Clone())); // push current state to stack
@@ -89,34 +108,58 @@ public class Task2Generator : MonoBehaviour
             // else
             // {
             states.Push(new GridState((SuperPosition[,])_grid.Clone()));
+            nodesValues.Push(new Vector3Int(node.x,node.y,observedValue));
+            // _stackText.text += "(" + node.x + "," + node.y + ") - " + observedValue + "\n";
+            
             if (PropogateNeighbors(node, observedValue))
             {
                 _grid[node.x, node.y].SetCurrentValue(observedValue);
                 _grid[node.x, node.y].SetObserved(true);
+                // DrawTile( node.x, node.y);
+                // print("observed " + node.x + "," + node.y + " as " + observedValue);
             }
             else
             {
                 _grid = states.Pop().Grid; // 恢复上一个状态
+                nodesValues.Pop();
+                // _stackText.text = _stackText.text.Substring(0, _stackText.text.LastIndexOf("\n"));
+                
                 _grid[node.x, node.y].RemovePossibleValue(observedValue);
+                print("failed to propogate neighbors for " + node.x + "," + node.y + " as " + observedValue + " removing from options");
                 if (_grid[node.x, node.y].NumOptions == 0)
                 {
-                    // if (states.Count > 0)
-                    // {
-                    //     _grid = states.Pop().Grid; // 恢复上一个状态
-                    // }
+                    if (states.Count > 0)
+                    {
+                        _grid = states.Pop().Grid; // 恢复上一个状态
+                        Vector3Int nodeValue = nodesValues.Pop();
+                        
+                        // _stackText.text = _stackText.text.Substring(0, _stackText.text.LastIndexOf("\n"));
+                        _grid[nodeValue.x, nodeValue.y].RemovePossibleValue(nodeValue.z);
+                    }
                     // else
                     // {
                     print("all options for this node is not available");
-                        return false;
+                        // return false;
                     // }
                 }
             }
-                
+
+            if (runtimeDrawing)
+            {
+                DrawTiles();
+                yield return new WaitForSeconds(_timeBetweenSteps);
+            }
+            else
+            {
+                yield return null;
+            }
             // }
 
         }
+        if (!runtimeDrawing) DrawTiles();
+        _stackText.text += "Done!";
 
-        return true; // 成功
+        // return true; // 成功
     }
 
 
@@ -134,19 +177,30 @@ public class Task2Generator : MonoBehaviour
         {
             for (int y = 0; y < GRID_HEIGHT; y++)
             {
-                GameObject tile = GameObject.Instantiate(_tileset[_grid[x, y].GetCurrentValue()].gameObject);
-                tile.transform.position = tile.transform.position + new Vector3(x,0f, y) - new Vector3((GRID_WIDTH-1)/2f, 0f, (GRID_HEIGHT-1)/2f);
-                tile.transform.parent = tilesParent.transform;
+                if (_grid[x, y].GetCurrentValue() != -1 && _grid[x, y].IsObserved())
+                {
+                    GameObject tile = GameObject.Instantiate(_tileset[_grid[x, y].GetCurrentValue()].gameObject);
+                    tile.transform.position = tile.transform.position + new Vector3(x,0f, y) - new Vector3((GRID_WIDTH-1)/2f, 0f, (GRID_HEIGHT-1)/2f);
+                    tile.transform.parent = tilesParent.transform;
+                }
+                GameObject title = GameObject.Instantiate(_titlePrefab);
+                title.transform.position = title.transform.position + new Vector3(x,0f, y) - new Vector3((GRID_WIDTH-1)/2f, 0f, (GRID_HEIGHT-1)/2f);
+                title.transform.SetParent(tilesParent.transform);
+                title.gameObject.GetComponent<TextMeshPro>().text = _grid[x, y].NumOptions.ToString();
             }
         }
+
+        string text = "Stacks: \n";
+        List<Vector3Int> reversedNodesValues = nodesValues.ToList();
+        reversedNodesValues.Reverse();
+
+        foreach (Vector3Int nodeValue in reversedNodesValues)
+        {
+            text += "(" + nodeValue.x + "," + nodeValue.y + ") - " + nodeValue.z + "\n";
+        }
+        _stackText.text = text;
     }
 
-    void DrawTile(int x, int y)
-    {
-        GameObject tile = GameObject.Instantiate(_tileset[_grid[x, y].GetCurrentValue()].gameObject);
-        tile.transform.position = tile.transform.position + new Vector3(x,0f, y) - new Vector3((GRID_WIDTH-1)/2f, 0f, (GRID_HEIGHT-1)/2f);
-        tile.transform.parent = GameObject.Find("Tiles").transform;
-    }
 
     bool DoUnobservedNodesExist()
     {
@@ -174,7 +228,6 @@ public class Task2Generator : MonoBehaviour
         return _grid[node.x, node.y].SelectOption();
     }
 
-    public GameObject prefabObject;
 
     private void InitGrid()
     {
@@ -186,24 +239,18 @@ public class Task2Generator : MonoBehaviour
             {
                 _grid[x, y] = new SuperPosition(_tileset.Count);
 
-                if (prefabObject != null)
-                {
-                    _grid[x, y].gridObject = Instantiate(prefabObject);
-                    _grid[x, y].gridObject.transform.position = _grid[x, y].gridObject.transform.position + new Vector3(x,0f, y) - new Vector3((GRID_WIDTH-1)/2f, 0f, (GRID_HEIGHT-1)/2f);
-
-                }
             }
         }
     }
 
     // Update is called once per frame
-    void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
-        }
-    }
+    // void Update()
+    // {
+    //     if (Input.GetKeyDown(KeyCode.R))
+    //     {
+    //         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    //     }
+    // }
 
     public void RestartScene()
     {
@@ -213,16 +260,12 @@ public class Task2Generator : MonoBehaviour
     
     bool PropogateNeighbors(Vector2Int node, int observedValue)
     {
-        if (
-        (PropogateTo(node, new Vector2Int(-1, 0), _tileset[observedValue]) ||
-        PropogateTo(node, new Vector2Int(1, 0), _tileset[observedValue])||
-        PropogateTo(node, new Vector2Int(0, -1), _tileset[observedValue]) ||
-        PropogateTo(node, new Vector2Int(0, 1), _tileset[observedValue]) ) == false)
-        {
-            return false;
-        }
+        return
+        (PropogateTo(node, new Vector2Int(-1, 0), _tileset[observedValue]) &&
+        PropogateTo(node, new Vector2Int(1, 0), _tileset[observedValue]) &&
+        PropogateTo(node, new Vector2Int(0, -1), _tileset[observedValue]) &&
+        PropogateTo(node, new Vector2Int(0, 1), _tileset[observedValue]) );
 
-        return true;
     }
 
     bool PropogateTo(Vector2Int node, Vector2Int direction, MultipleTile mustWorkAdjacentTo)
@@ -254,7 +297,6 @@ public class Task2Generator : MonoBehaviour
 
         return true; // not dealing with edge cases
     }
-
 
     // find next node with minimum options
     Vector2Int GetNextUnobservedNode()
