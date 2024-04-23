@@ -25,6 +25,23 @@ public class CameraController : MonoBehaviour
 
     //private Vector3 dragOrigin;
 
+    private void Awake()
+    {
+        
+        DontDestroyOnLoad(gameObject);
+        CameraController[] objs = FindObjectsOfType<CameraController>();
+        if (objs.Length > 1)
+        {
+            foreach (CameraController obj in objs)
+            {
+                if (obj != this)
+                {
+                    Destroy(obj.gameObject);
+                }
+            }
+        }
+    }
+
     void Start()
     {
         Vector3 angles = transform.eulerAngles;
