@@ -11,136 +11,107 @@ public class Task2Generator : MonoBehaviour
 {
     class GridState
     {
-        public SuperPosition[,] Grid;
+        public SuperPosition[,,] Grid;
 
-        public GridState(SuperPosition[,] grid)
+        public GridState(SuperPosition[,,] grid)
         {
             int width = grid.GetLength(0);
             int height = grid.GetLength(1);
-            Grid = new SuperPosition[width, height];
+            int depth = grid.GetLength(2);
+            Grid = new SuperPosition[width, height, depth];
 
             for (int x = 0; x < width; x++)
             {
                 for (int y = 0; y < height; y++)
                 {
-                    // 使用SuperPosition的深拷贝构造函数
-                    Grid[x, y] = new SuperPosition(grid[x, y]);
+                    for (int z = 0; z < depth; z++)
+                    {
+                        // 使用SuperPosition的深拷贝构造函数
+                        Grid[x, y, z] = new SuperPosition(grid[x, y, z]);
+                    }
                 }
             }
         }
     }
 
     Stack<GridState> states = new Stack<GridState>();
-    Stack<Vector3Int> nodesValues = new Stack<Vector3Int>();
     
+    public struct NodeValue
+    {
+        public Vector3Int Node { get; set; }
+        public int Value { get; set; }
+
+        public NodeValue(Vector3Int node, int value)
+        {
+            Node = node;
+            Value = value;
+        }
+    }
+
+    private Stack<NodeValue> nodesValues = new Stack<NodeValue>();
+
 
     [Header("Grid Settings")]
     public int GRID_WIDTH = 8;
     public int GRID_HEIGHT = 8;
+    public int GRID_DEPTH = 8; // New depth for 3D
 
-    public Vector2Int initialObservePoint;
-    // public int MAX_TRIES = 16;
+    public Vector3Int initialObservePoint;
     [Header("Tiles")]
     [SerializeField] List<MultipleTile> _tileset;
-    
+
     [Header("Test")]
     [SerializeField] GameObject _titlePrefab;
 
     [SerializeField] private TextMeshProUGUI _stackText;
     public float _timeBetweenSteps = 0.2f;
     public bool runtimeDrawing = true;
-    SuperPosition[,] _grid;
+    SuperPosition[,,] _grid; // Changed to 3D
 
     // Start is called before the first frame update
     void Start()
     {
         StartCoroutine(RunWFC());
-        // int tries = 0;
-        // bool result;
-        //
-        // do
-        // {
-        //     tries++;
-        //     result = RunWFC();
-        // }
-        // while (result == false && tries < MAX_TRIES);
-        //
-        // if (result == false)
-        // {
-        //     print("Unable to solve wave function collapse after " + tries + " tries.");
-        // }
-        // else
-        // {
-        //     DrawTiles();
-        // }
     }
-    
+
     IEnumerator RunWFC()
     {
         InitGrid(); // initial grid and create object prefab
-    
+
         while (DoUnobservedNodesExist()) // when there are any tiles IsObserved() == false
         {
-            Vector2Int node = initialObservePoint != new Vector2Int(-1,-1) ?initialObservePoint :GetNextUnobservedNode(); // get tile with lowest options
-            initialObservePoint = new Vector2Int(-1, -1);
+            Vector3Int node = initialObservePoint != new Vector3Int(-1,-1,-1) ?initialObservePoint :GetNextUnobservedNode(); // get tile with lowest options
+            initialObservePoint = new Vector3Int(-1, -1, -1);
             if (node.x == -1)
             {
-                // return false;
                 print("Unable to solve wave function collapse");
             }
-
-            // states.Push(new GridState((SuperPosition[,])_grid.Clone())); // push current state to stack
-
             int observedValue = SelectOption(node); // observe the super position
-            //
-            // if (observedValue == -1) // if node is _observed || _possibleValues.Count == 0
-            // {
-            //     if (states.Count > 0)
-            //     {
-            //         _grid = states.Pop().Grid; // 恢复上一个状态
-            //     }
-            //     else
-            //     {
-            //         Debug.LogWarning("Count error for observation at node " + node);
-            //         return false;
-            //     }
-            // }
-            // else
-            // {
-            states.Push(new GridState((SuperPosition[,])_grid.Clone()));
-            nodesValues.Push(new Vector3Int(node.x,node.y,observedValue));
-            // _stackText.text += "(" + node.x + "," + node.y + ") - " + observedValue + "\n";
-            
+
+            states.Push(new GridState((SuperPosition[,,])_grid.Clone()));
+            nodesValues.Push(new NodeValue(new Vector3Int(node.x,node.y,node.z), observedValue) );
+
             if (PropogateNeighbors(node, observedValue))
             {
-                _grid[node.x, node.y].SetCurrentValue(observedValue);
-                _grid[node.x, node.y].SetObserved(true);
-                // DrawTile( node.x, node.y);
-                // print("observed " + node.x + "," + node.y + " as " + observedValue);
+                _grid[node.x, node.y, node.z].SetCurrentValue(observedValue);
+                _grid[node.x, node.y, node.z].SetObserved(true);
             }
             else
             {
                 _grid = states.Pop().Grid; // 恢复上一个状态
                 nodesValues.Pop();
-                // _stackText.text = _stackText.text.Substring(0, _stackText.text.LastIndexOf("\n"));
-                
-                _grid[node.x, node.y].RemovePossibleValue(observedValue);
-                print("failed to propogate neighbors for " + node.x + "," + node.y + " as " + observedValue + " removing from options");
-                if (_grid[node.x, node.y].NumOptions == 0)
+                _grid[node.x, node.y, node.z].RemovePossibleValue(observedValue);
+                print("Popped state to last state");
+                if (_grid[node.x, node.y, node.z].NumOptions == 0)
                 {
                     if (states.Count > 0)
                     {
                         _grid = states.Pop().Grid; // 恢复上一个状态
-                        Vector3Int nodeValue = nodesValues.Pop();
-                        
-                        // _stackText.text = _stackText.text.Substring(0, _stackText.text.LastIndexOf("\n"));
-                        _grid[nodeValue.x, nodeValue.y].RemovePossibleValue(nodeValue.z);
+                        NodeValue nodeValue = nodesValues.Pop();
+                        Vector3Int nodeValueNode = nodeValue.Node;
+                        int value = nodeValue.Value;
+                        _grid[nodeValueNode.x, nodeValueNode.y, nodeValueNode.z].RemovePossibleValue(value);
                     }
-                    // else
-                    // {
-                    print("all options for this node is not available");
-                        // return false;
-                    // }
                 }
             }
 
@@ -153,14 +124,11 @@ public class Task2Generator : MonoBehaviour
             {
                 yield return null;
             }
-            // }
-
         }
         if (!runtimeDrawing) DrawTiles();
         _stackText.text += "Done!";
-
-        // return true; // 成功
     }
+
 
 
 
@@ -172,31 +140,34 @@ public class Task2Generator : MonoBehaviour
         {
             DestroyImmediate(tilesParent.transform.GetChild(0).gameObject);
         }
-        
+
         for (int x = 0; x < GRID_WIDTH; x++)
         {
             for (int y = 0; y < GRID_HEIGHT; y++)
             {
-                if (_grid[x, y].GetCurrentValue() != -1 && _grid[x, y].IsObserved())
+                for (int z = 0; z < GRID_DEPTH; z++)
                 {
-                    GameObject tile = GameObject.Instantiate(_tileset[_grid[x, y].GetCurrentValue()].gameObject);
-                    tile.transform.position = tile.transform.position + new Vector3(x,0f, y) - new Vector3((GRID_WIDTH-1)/2f, 0f, (GRID_HEIGHT-1)/2f);
-                    tile.transform.parent = tilesParent.transform;
+                    if (_grid[x, y, z].GetCurrentValue() != -1 && _grid[x, y, z].IsObserved())
+                    {
+                        GameObject tile = GameObject.Instantiate(_tileset[_grid[x, y, z].GetCurrentValue()].gameObject);
+                        tile.transform.position = tile.transform.position + new Vector3(x, y, z) - new Vector3((GRID_WIDTH-1)/2f, (GRID_HEIGHT-1)/2f, (GRID_DEPTH-1)/2f);
+                        tile.transform.parent = tilesParent.transform;
+                    }
+                    GameObject title = GameObject.Instantiate(_titlePrefab);
+                    title.transform.position = title.transform.position + new Vector3(x, y, z) - new Vector3((GRID_WIDTH-1)/2f, (GRID_HEIGHT-1)/2f, (GRID_DEPTH-1)/2f);
+                    title.transform.SetParent(tilesParent.transform);
+                    title.gameObject.GetComponent<TextMeshPro>().text = _grid[x, y, z].NumOptions.ToString();
                 }
-                GameObject title = GameObject.Instantiate(_titlePrefab);
-                title.transform.position = title.transform.position + new Vector3(x,0f, y) - new Vector3((GRID_WIDTH-1)/2f, 0f, (GRID_HEIGHT-1)/2f);
-                title.transform.SetParent(tilesParent.transform);
-                title.gameObject.GetComponent<TextMeshPro>().text = _grid[x, y].NumOptions.ToString();
             }
         }
 
         string text = "Stacks: \n";
-        List<Vector3Int> reversedNodesValues = nodesValues.ToList();
+        List<NodeValue> reversedNodesValues = nodesValues.ToList();
         reversedNodesValues.Reverse();
 
-        foreach (Vector3Int nodeValue in reversedNodesValues)
+        foreach (NodeValue nodeValue in reversedNodesValues)
         {
-            text += "(" + nodeValue.x + "," + nodeValue.y + ") - " + nodeValue.z + "\n";
+            text += "(" + nodeValue.Node.x + "," + nodeValue.Node.y + "," + nodeValue.Node.z + ") - " + nodeValue.Value + "\n";
         }
         _stackText.text = text;
     }
@@ -208,8 +179,11 @@ public class Task2Generator : MonoBehaviour
         {
             for (int y = 0; y < GRID_HEIGHT; y++)
             {
-                if (_grid[x, y].IsObserved() == false) {
-                    return true;
+                for (int z = 0; z < GRID_DEPTH; z++)
+                {
+                    if (_grid[x, y, z].IsObserved() == false) {
+                        return true;
+                    }
                 }
             }
         }
@@ -217,28 +191,24 @@ public class Task2Generator : MonoBehaviour
         return false;
     }
 
-    int SelectOption(Vector2Int node)
+    int SelectOption(Vector3Int node)
     {
-        // Debug.LogWarning(node.x + "," + node.y);
-        // if (_grid[node.x, node.y].PossibleValues.Count == 0)
-        // {
-        //     Debug.LogWarning("No possible values for observation at node " + node);
-        //     return -1; // 表示观测失败
-        // }
-        return _grid[node.x, node.y].SelectOption();
+        return _grid[node.x, node.y, node.z].SelectOption();
     }
 
 
     private void InitGrid()
     {
-        _grid = new SuperPosition[GRID_WIDTH, GRID_HEIGHT];
+        _grid = new SuperPosition[GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH];
 
         for (int x = 0; x < GRID_WIDTH; x++)
         {
             for (int y = 0; y < GRID_HEIGHT; y++)
             {
-                _grid[x, y] = new SuperPosition(_tileset.Count);
-
+                for (int z = 0; z < GRID_DEPTH; z++)
+                {
+                    _grid[x, y, z] = new SuperPosition(_tileset.Count);
+                }
             }
         }
     }
@@ -258,76 +228,80 @@ public class Task2Generator : MonoBehaviour
         
     }
     
-    bool PropogateNeighbors(Vector2Int node, int observedValue)
+    bool PropogateNeighbors(Vector3Int node, int observedValue)
     {
         return
-        (PropogateTo(node, new Vector2Int(-1, 0), _tileset[observedValue]) &&
-        PropogateTo(node, new Vector2Int(1, 0), _tileset[observedValue]) &&
-        PropogateTo(node, new Vector2Int(0, -1), _tileset[observedValue]) &&
-        PropogateTo(node, new Vector2Int(0, 1), _tileset[observedValue]) );
+            (PropogateTo(node, new Vector3Int(-1, 0, 0), _tileset[observedValue]) &&
+             PropogateTo(node, new Vector3Int(1, 0, 0), _tileset[observedValue]) &&
+             PropogateTo(node, new Vector3Int(0, -1, 0), _tileset[observedValue]) &&
+             PropogateTo(node, new Vector3Int(0, 1, 0), _tileset[observedValue]) &&
+             PropogateTo(node, new Vector3Int(0, 0, -1), _tileset[observedValue]) &&
+             PropogateTo(node, new Vector3Int(0, 0, 1), _tileset[observedValue]));
 
     }
 
-    bool PropogateTo(Vector2Int node, Vector2Int direction, MultipleTile mustWorkAdjacentTo)
+    bool PropogateTo(Vector3Int node, Vector3Int direction, MultipleTile mustWorkAdjacentTo)
     {
-        Vector2Int neighborNode = node + direction;
-        
-        if (neighborNode.x >= 0 && neighborNode.x < GRID_WIDTH && neighborNode.y >= 0 && neighborNode.y < GRID_HEIGHT)
+        Vector3Int neighborNode = node + direction;
+
+        if (neighborNode.x >= 0 && neighborNode.x < GRID_WIDTH && 
+            neighborNode.y >= 0 && neighborNode.y < GRID_HEIGHT &&
+            neighborNode.z >= 0 && neighborNode.z < GRID_DEPTH)
         {
-            SuperPosition neighborSuperPosition = _grid[neighborNode.x, neighborNode.y];
-        
+            SuperPosition neighborSuperPosition = _grid[neighborNode.x, neighborNode.y, neighborNode.z];
+
             List<int> incompatibleValues = new List<int>();
             foreach (var possibleValue in neighborSuperPosition.PossibleValues)
             {
-                if (!MultipleTile.IsCompatible( mustWorkAdjacentTo, _tileset[possibleValue],direction))
+                if (!MultipleTile.IsCompatible(mustWorkAdjacentTo, _tileset[possibleValue], direction))
                 {
                     incompatibleValues.Add(possibleValue);
                 }
             }
 
-            
             foreach (var value in incompatibleValues)
             {
                 neighborSuperPosition.RemovePossibleValue(value);
             }
-            //
-            return (neighborSuperPosition.NumOptions != 0);
 
+            return (neighborSuperPosition.NumOptions != 0);
         }
 
         return true; // not dealing with edge cases
     }
 
     // find next node with minimum options
-    Vector2Int GetNextUnobservedNode()
+    Vector3Int GetNextUnobservedNode()
     {
-        Vector2Int minOptionNode = new Vector2Int(-1, -1);
+        Vector3Int minOptionNode = new Vector3Int(-1, -1, -1);
         int minOptions = int.MaxValue;
-        
+
         for (int x = 0; x < GRID_WIDTH; x++)
         {
             for (int y = 0; y < GRID_HEIGHT; y++)
             {
-                if (!_grid[x, y].IsObserved())
+                for (int z = 0; z < GRID_DEPTH; z++)
                 {
-                    int options = _grid[x, y].NumOptions;
-        
-                    if (options < minOptions && options > 0) 
+                    if (!_grid[x, y, z].IsObserved())
                     {
-                        minOptions = options;
-                        minOptionNode = new Vector2Int(x, y);
-        
-                        if (minOptions == 1)
+                        int options = _grid[x, y, z].NumOptions;
+
+                        if (options < minOptions && options > 0)
                         {
-                            return minOptionNode;
+                            minOptions = options;
+                            minOptionNode = new Vector3Int(x, y, z);
+
+                            if (minOptions == 1)
+                            {
+                                return minOptionNode;
+                            }
                         }
                     }
                 }
             }
         }
-        
-        return minOptionNode; 
 
+        return minOptionNode;
     }
     
 

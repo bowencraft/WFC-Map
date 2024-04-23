@@ -8,16 +8,13 @@ public class MultipleTile : MonoBehaviour
     public enum EdgeType
     {
         None = 0,
-        Road = 1 << 0,
-        HighRoad = 1 << 1,
-        Building = 1 << 2,
-        Condo = 1 << 3,
-        Grass = 1 << 4,
-        RoadBarrier = 1 << 5,
-        RoadTurn = 1 << 6,
-        HighRoadTurn = 1 << 7,
-        HighRoadStart = 1 << 8,
-        HighRoadEnd = 1 << 9
+        E01 = 1 << 0,
+        E10 = 1 << 1,
+        E11 = 1 << 2,
+        E00 = 1 << 3,
+        T0 = 1 << 4,
+        T1 = 1 << 5,
+        T2 = 1 << 6,
     }
 
     // 定义 Edge 作为存储边缘类型和期望类型的结构
@@ -37,68 +34,48 @@ public class MultipleTile : MonoBehaviour
     // 为每个方向使用 Edge 结构而不是单一的 EdgeType
     public Edge LeftEdge;
     public Edge RightEdge;
+    public Edge FrontEdge; // New edge for 3D
+    public Edge BackEdge; // New edge for 3D
     public Edge UpEdge;
     public Edge DownEdge;
 
     public int RotationVariant = 0; // 新增：旋转变种值，范围从0到3，每个数值代表旋转90度
 
     // 旋转边缘，获取实际用于比较的边缘
-    private Edge GetRotatedEdge(Edge[] edges, int rotation, Vector2Int direction)
+    private Edge GetRotatedEdge(Edge[] edges, int rotation, Vector3Int direction)
     {
         // 将方向旋转对应次数
         for(int i = 0; i < rotation; i++)
         {
-            direction = new Vector2Int(-direction.y, direction.x);
+            direction = new Vector3Int(-direction.z, direction.y, direction.x);
         }
-        if (direction == Vector2Int.left) return edges[0];
-        if (direction == Vector2Int.right) return edges[1];
-        if (direction == Vector2Int.up) return edges[2];
-        if (direction == Vector2Int.down) return edges[3];
+        if (direction == Vector3Int.left) return edges[0];
+        if (direction == Vector3Int.right) return edges[1];
+        if (direction == Vector3Int.up) return edges[2];
+        if (direction == Vector3Int.down) return edges[3];
+        if (direction == Vector3Int.forward) return edges[4]; // New direction for 3D
+        if (direction == Vector3Int.back) return edges[5]; // New direction for 3D
+
         throw new ArgumentException("Invalid direction");
     }
 
-    public static bool  IsCompatible(MultipleTile a, MultipleTile b, Vector2Int direction)
+
+    public static bool IsCompatible(MultipleTile a, MultipleTile b, Vector3Int direction)
     {
-        // 首先基于旋转变种值调整边缘
-        Edge[] aEdges = {a.LeftEdge, a.RightEdge, a.UpEdge, a.DownEdge};
-        Edge[] bEdges = {b.LeftEdge, b.RightEdge, b.UpEdge, b.DownEdge};
+        Edge[] aEdges = {a.LeftEdge, a.RightEdge, a.UpEdge, a.DownEdge, a.FrontEdge, a.BackEdge};
+        Edge[] bEdges = {b.LeftEdge, b.RightEdge, b.UpEdge, b.DownEdge, b.FrontEdge, b.BackEdge};
 
         Edge aEdge = a.GetRotatedEdge(aEdges, a.RotationVariant, direction);
-        Edge bEdge = b.GetRotatedEdge(bEdges, b.RotationVariant, -direction); // 注意，b的方向是相反的
+        Edge bEdge = b.GetRotatedEdge(bEdges, b.RotationVariant, -direction);
 
-        // 现在aEdge和bEdge是考虑旋转后的实际边缘，进行兼容性比较
         return (aEdge.OwnType & bEdge.DesiredType) != 0 && (bEdge.OwnType & aEdge.DesiredType) != 0;
     }
     //
-    // public static bool IsCompatible(MultipleTile a, MultipleTile b, Vector2Int direction)
+    // // 使用此方法初始化示例（只是一个示例，实际使用中可能有所不同）
+    // void Start()
     // {
-    //     // 比较两个瓦片的边缘是否兼容，考虑期望的类型
-    //     if (direction == Vector2Int.right)
-    //     {
-    //         return (a.RightEdge.OwnType & b.LeftEdge.DesiredType) != 0 && (b.LeftEdge.OwnType & a.RightEdge.DesiredType) != 0;
-    //     }
-    //     else if (direction == Vector2Int.left)
-    //     {
-    //         return (a.LeftEdge.OwnType & b.RightEdge.DesiredType) != 0 && (b.RightEdge.OwnType & a.LeftEdge.DesiredType) != 0;
-    //     }
-    //     else if (direction == Vector2Int.up)
-    //     {
-    //         return (a.UpEdge.OwnType & b.DownEdge.DesiredType) != 0 && (b.DownEdge.OwnType & a.UpEdge.DesiredType) != 0;
-    //     }
-    //     else if (direction == Vector2Int.down)
-    //     {
-    //         return (a.DownEdge.OwnType & b.UpEdge.DesiredType) != 0 && (b.UpEdge.OwnType & a.DownEdge.DesiredType) != 0;
-    //     }
-    //
-    //     return false;
+    //     // 初始化边缘类型和期望类型
+    //     LeftEdge = new Edge(EdgeType.Road, EdgeType.Building | EdgeType.Grass);
+    //     RightEdge = new Edge(EdgeType.Building, EdgeType.Road | EdgeType.HighRoad);
     // }
-
-    // 使用此方法初始化示例（只是一个示例，实际使用中可能有所不同）
-    void Start()
-    {
-        // 初始化边缘类型和期望类型
-        LeftEdge = new Edge(EdgeType.Road, EdgeType.Building | EdgeType.Grass);
-        RightEdge = new Edge(EdgeType.Building, EdgeType.Road | EdgeType.HighRoad);
-        // 初始化 UpEdge 和 DownEdge...
-    }
 }

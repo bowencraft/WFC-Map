@@ -56,13 +56,6 @@ public class SuperPosition
         int randomIndex = Random.Range(0, _possibleValues.Count);
         int observedValue = _possibleValues[randomIndex];
 
-        // Clear the list and add back only the observed value
-        // _possibleValues.Clear();
-        // _possibleValues.Add(observedValue);
-
-        // // Mark as observed
-        // _observed = true;
-
         return observedValue;
     }
     
